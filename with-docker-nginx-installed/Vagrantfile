@@ -1,0 +1,43 @@
+Vagrant.configure(2) do |ansible_lab|                 # khai báo máy ảo
+  ansible_lab.vm.define "lab_server_with_docker" do |lab_server_with_docker|
+    lab_server_with_docker.vm.provider "libvirt" do |libvirt|        # Máy ảo dùng libvirt và cấu hình tài nguyên
+      libvirt.cpus = 1                                 # cấp 1 core CPU
+      libvirt.memory = "2096"                          # cấp 2GB bộ nhớ
+    end                                            # kết thúc cấu hình tài nguyên 
+
+    lab_server_with_docker.vm.box = 'generic/ubuntu2004'              # Sử dụng Box generic/ubuntu2004 tạo máy ảo được lấy từ vagrant cloud
+    lab_server_with_docker.vm.network "private_network", ip: "192.168.122.31"
+    lab_server_with_docker.vm.hostname = "ansible-lab-web-server"
+
+  end
+  
+  ansible_lab.vm.provision "shell", inline: <<-SHELL
+    apt update
+    
+    # Cài đặt Docker
+    apt-get install -y \
+      ca-certificates \
+      curl \
+      gnupg \
+      lsb-release
+    
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+    $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+    apt-get update
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
+    # Cài đặt Nginx
+    apt-get install -y nginx
+    systemctl enable nginx
+    systemctl start nginx
+    
+    # Đặt mật khẩu tài khoản password là 'password' và cho phép đăng nhập ssh
+    echo "root:password" | chpasswd
+    sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+    systemctl reload sshd
+
+  SHELL
+
+end
